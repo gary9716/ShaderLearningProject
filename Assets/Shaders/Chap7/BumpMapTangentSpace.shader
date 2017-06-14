@@ -102,8 +102,11 @@
 				fixed3 tLightDir = normalize(i.lightDir); //lightDir in tangent space
 				fixed3 tViewDir = normalize(i.viewDir); //viewDir in tangent space
 
-				fixed3 tNormal = normalize(UnpackNormal(tex2D(_BumpMap, i.uv.zw))) * _BumpScale; //UnpackNormal would remap value from [0, 1] to [-1, 1]
-				
+				fixed3 tNormal = UnpackNormal(tex2D(_BumpMap, i.uv.zw)); //UnpackNormal would remap value from [0, 1] to [-1, 1]
+				tNormal.xy *= _BumpScale;
+				tNormal.z = sqrt(1 - saturate(dot(tNormal.xy, tNormal.xy))); //make sure z is always greater than or equal 0
+				tNormal = normalize(tNormal);
+
 				// sample the texture
 				fixed3 albedo = tex2D(_MainTex, i.uv.xy).rgb * _Tint.rgb;
 
@@ -111,11 +114,11 @@
 				fixed3 ambient = UNITY_LIGHTMODEL_AMBIENT.xyz;
 
 				//Compute diffuse term(half-lambert)
-				fixed3 diffuse = _LightColor0.rgb * max(0, dot(tNormal, tLightDir));
+				fixed3 diffuse = _LightColor0.rgb * (dot(tNormal, tLightDir) * 0.5 + 0.5);
 
 				//Compute specular term(Blinn-Phong)
 				fixed3 halfVec = normalize(tViewDir + tLightDir);
-				fixed3 specular = _LightColor0.rgb * _Specular.rgb * pow(max(0, dot(tNormal, halfVec)), _Gloss);
+				fixed3 specular = _LightColor0.rgb * _Specular.rgb * pow(dot(tNormal, halfVec) * 0.5 + 0.5 , _Gloss);
 
 				fixed3 color = (ambient + diffuse) * albedo + specular;
 
