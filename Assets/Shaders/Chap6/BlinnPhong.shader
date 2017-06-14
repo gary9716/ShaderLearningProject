@@ -3,7 +3,6 @@
 	Properties
 	{
 		_MainTex ("Texture", 2D) = "white" {}
-		//_Diffuse ("Diffuse", Color) = (1, 1, 1, 1)
 		_Specular ("Specular", Color) = (1, 1, 1, 1)
 		_Tint ("Tint", Color) = (1,1,1,1)
 		_Gloss ("Gloss", Range(8.0, 256)) = 20
@@ -92,4 +91,6 @@
 			ENDCG
 		}
 	}
+
+	FallBack "Specular"
 }
