@@ -93,7 +93,7 @@
 				tNormal.z = sqrt(1 - saturate(dot(tNormal.xy, tNormal.xy))); //make sure z is always greater than or equal 0
 				tNormal = normalize(tNormal);
 
-				fixed3 wNormal = tNormal.x * i.worldTangent + tNormal.y * i.worldBinormal + tNormal.z * i.worldNormal;
+				fixed3 wNormal = normalize(tNormal.x * i.worldTangent + tNormal.y * i.worldBinormal + tNormal.z * i.worldNormal);
 
 				// sample the texture
 				fixed3 albedo = tex2D(_MainTex, i.uv.xy).rgb * _Tint.rgb;
