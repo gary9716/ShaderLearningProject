@@ -102,11 +102,11 @@
 				fixed3 ambient = UNITY_LIGHTMODEL_AMBIENT.xyz;
 
 				//Compute diffuse term(half-lambert)
-				fixed3 diffuse = _LightColor0.rgb * max(0, (dot(wNormal, wLightDir) * 0.5 + 0.5) * _BumpScale);
+				fixed3 diffuse = _LightColor0.rgb * (dot(wNormal, wLightDir) * 0.5 + 0.5);
 
 				//Compute specular term(Blinn-Phong)
 				fixed3 halfVec = normalize(wViewDir + wLightDir);
-				fixed3 specular = _LightColor0.rgb * _Specular.rgb * pow(max(0,(dot(wNormal, halfVec) * 0.5 + 0.5) * _BumpScale), _Gloss);
+				fixed3 specular = _LightColor0.rgb * _Specular.rgb * pow(dot(wNormal, halfVec) * 0.5 + 0.5, _Gloss);
 
 				fixed3 color = (ambient + diffuse) * albedo + specular;
 
