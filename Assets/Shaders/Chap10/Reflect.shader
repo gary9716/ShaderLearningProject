@@ -1,19 +1,22 @@
-﻿Shader "KT/RampBumpMapWorldSpace"
+﻿Shader "KT/Reflect"
 {
 	Properties
 	{
-		_MainTex("Texture", 2D) = "white" {}
+		_MainTex ("Texture", 2D) = "white" {}
 		_BumpMap("Normal Map", 2D) = "bump" {}
-		_RampMap("Ramp Map", 2D) = "white" {}
 		_BumpScale("Bump Scale", Float) = 1.0
-		_Specular("Specular", Color) = (1, 1, 1, 1)
+		_ReflectColor ("Reflect Color", Color) = (1 , 1 , 1 , 1)
+		_ReflectAmount ("Reflect Amount", Range(0, 1)) = 1
+		_Cube ("Cube map", CUBE) = "" {}
+		_FresnelScale ("Fresnel scale", Range(0, 1)) = 1
 		_Tint("Tint", Color) = (1,1,1,1)
-		_Gloss("Gloss", Range(8.0, 256)) = 20
 	}
-	
 	SubShader
 	{
-		Tags{ "RenderType" = "Opaque" }
+		Tags { 
+			"RenderType"="Opaque" 
+			"Queue"="Geometry"
+		}
 		LOD 100
 
 		Pass
@@ -23,55 +26,55 @@
 			CGPROGRAM
 			#pragma vertex vert
 			#pragma fragment frag
-					// make fog work
+			// make fog work
 			#pragma multi_compile_fog
+			#pragma multi_compile_fwdbase
 
 			#include "UnityCG.cginc"
 			#include "Lighting.cginc"
+			#include "AutoLight.cginc"
 
 			struct appdata
 			{
 				float4 vertex : POSITION;
-				float4 uv : TEXCOORD0;
+				float2 uv : TEXCOORD0;
 				
 				float3 normal : NORMAL;
-				float4 tangent : TANGENT; //notice that tangent is a float4 variable, we would need w component to decide the direction of binormal(bitangent)
+				float4 tangent : TANGENT;
 			};
 
 			struct v2f
 			{
 				float4 uv : TEXCOORD0;
-				UNITY_FOG_COORDS(1) //using TEXCOORD1
+				UNITY_FOG_COORDS(1)
 				float3 worldTangent : TEXCOORD2;
 				float3 worldNormal : TEXCOORD3;
 				float3 worldBinormal : TEXCOORD4;
 				float4 worldPos : TEXCOORD5;
+				SHADOW_COORDS(6)
 
-				float4 vertex : SV_POSITION;
-
+				float4 pos : SV_POSITION;
 			};
 
 			sampler2D _MainTex;
 			float4 _MainTex_ST;
-
+			
 			sampler2D _BumpMap;
 			float4 _BumpMap_ST;
-
-			sampler2D _RampMap;
-			float4 _RampMap_ST;
-
 			half _BumpScale;
 
-			fixed4 _Specular;
-			fixed4 _Tint;
-			float _Gloss;
+			samplerCUBE _Cube;
 
-			v2f vert(appdata v)
+			fixed _ReflectAmount;
+			fixed4 _ReflectColor;
+			fixed4 _Tint;
+			fixed _FresnelScale;
+
+			v2f vert (appdata v)
 			{
 				v2f o;
-				o.vertex = UnityObjectToClipPos(v.vertex); //same with mul(UNITY_MATRIX_MVP, v.vertex);
-
-				//use xy to save tiling and offset information of MainTex and zw for BumpMap.
+				o.pos = UnityObjectToClipPos(v.vertex);
+				
 				o.uv.xy = v.uv.xy * _MainTex_ST.xy + _MainTex_ST.zw;				
 				o.uv.zw = v.uv.xy * _BumpMap_ST.xy + _BumpMap_ST.zw;
 
@@ -79,19 +82,21 @@
 				o.worldNormal = UnityObjectToWorldNormal(v.normal);
 				o.worldTangent = UnityObjectToWorldDir(v.tangent.xyz);
 				o.worldBinormal = cross(o.worldNormal, o.worldTangent) * v.tangent.w;
-				
 				UNITY_TRANSFER_FOG(o,o.vertex);
+				TRANSFER_SHADOW(o);
+
 				return o;
 			}
-
-			fixed4 frag(v2f i) : SV_Target
+			
+			fixed4 frag (v2f i) : SV_Target
 			{
 				fixed3 wLightDir = normalize(UnityWorldSpaceLightDir(i.worldPos)); //lightDir in world space
-				fixed3 wViewDir = normalize(UnityWorldSpaceViewDir(i.worldPos)); //viewDir in world space
+				fixed3 worldViewDir = normalize(UnityWorldSpaceViewDir(i.worldPos)); //viewDir in world space
 
 				i.worldNormal = normalize(i.worldNormal);
 				i.worldTangent = normalize(i.worldTangent);
 				i.worldBinormal = normalize(i.worldBinormal);
+				
 
 				fixed3 bump = normalize(UnpackNormal(tex2D(_BumpMap, i.uv.zw))); //UnpackNormal would remap value from [0, 1] to [-1, 1]
 				bump.xy *= _BumpScale;
@@ -99,36 +104,34 @@
 				bump = normalize(bump);
 
 				fixed3 wBump = normalize(bump.x * i.worldTangent + bump.y * i.worldBinormal + bump.z * i.worldNormal);
+				
+				fixed3 worldReflect = reflect(-worldViewDir, wBump);
 
 				// sample the texture
 				fixed3 albedo = tex2D(_MainTex, i.uv.xy).rgb * _Tint.rgb;
 
 				//get ambient term
-				fixed3 ambient = UNITY_LIGHTMODEL_AMBIENT.xyz;
+				fixed3 ambient = UNITY_LIGHTMODEL_AMBIENT.xyz * albedo;
 
-				//use ramp texture to change diffuse lighting
-				float halfLambert = (dot(wBump, wLightDir) * 0.5 + 0.5);
-				float2 rampUV = float2(halfLambert, halfLambert);
-				rampUV = TRANSFORM_TEX(rampUV, _RampMap);
-				float3 ramp = tex2D(_RampMap, rampUV).rgb;
+				//Compute diffuse term
+				fixed3 diffuse = _LightColor0.rgb * (dot(wBump, wLightDir) * 0.5 + 0.5) * albedo;
 
-				//Compute diffuse term(half-lambert)
-				fixed3 diffuse = _LightColor0.rgb * max(0, halfLambert * _BumpScale) * ramp;
+				fixed3 reflection = texCUBE(_Cube, worldReflect).rgb;
 
-				//Compute specular term(Blinn-Phong)
-				fixed3 halfVec = normalize(wViewDir + wLightDir);
-				fixed3 specular = _LightColor0.rgb * _Specular.rgb * pow(max(0,(dot(wBump, halfVec) * 0.5 + 0.5) * _BumpScale), _Gloss);
+				fixed fresnel = _FresnelScale + (1 - _FresnelScale) * pow(1 - dot(worldViewDir, wBump), 5);
 
-				fixed3 color = (ambient + diffuse) * albedo + specular;
+				UNITY_LIGHT_ATTENUATION(atten, i, i.worldPos.xyz);
 
+				fixed3 col = ambient + lerp(diffuse, reflection, saturate(fresnel)) * atten;
+				
 				// apply fog
-				UNITY_APPLY_FOG(i.fogCoord, color);
+				UNITY_APPLY_FOG(i.fogCoord, col);
 
-				return fixed4(color, 1.0);
+				return fixed4(col,1);
 			}
 			ENDCG
 		}
 	}
 
-	FallBack "Specular"
+	Fallback "Reflective/Bumped VertexLit"
 }

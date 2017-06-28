@@ -88,13 +88,13 @@ Shader "KT/MultiLightForwardRendering"
 				i.worldTangent = normalize(i.worldTangent);
 				i.worldBinormal = normalize(i.worldBinormal);
 
-				fixed3 tNormal = normalize(UnpackNormal(tex2D(_BumpMap, i.uv.zw)));
-				tNormal.xy *= _BumpScale;
-				tNormal.z = sqrt(1 - saturate(dot(tNormal.xy, tNormal.xy))); //make sure z is always greater than or equal 0
-				tNormal = normalize(tNormal);
+				fixed3 bump = normalize(UnpackNormal(tex2D(_BumpMap, i.uv.zw)));
+				bump.xy *= _BumpScale;
+				bump.z = sqrt(1 - saturate(dot(bump.xy, bump.xy))); //make sure z is always greater than or equal 0
+				bump = normalize(bump);
 
 				//tangent to world transform
-				fixed3 wNormal = tNormal.x * i.worldTangent + tNormal.y * i.worldBinormal + tNormal.z * i.worldNormal;
+				fixed3 wBump = bump.x * i.worldTangent + bump.y * i.worldBinormal + bump.z * i.worldNormal;
 				
 				// sample the texture
 				fixed3 albedo = tex2D(_MainTex, i.uv.xy).rgb * _Tint.rgb;
@@ -106,11 +106,11 @@ Shader "KT/MultiLightForwardRendering"
 				fixed3 wViewDir = normalize(UnityWorldSpaceViewDir(i.worldPos));
 
 				//diffuse term
-				fixed3 diffuse = _LightColor0.rgb * (dot(wLightDir, wNormal) * 0.5 + 0.5);
+				fixed3 diffuse = _LightColor0.rgb * (dot(wLightDir, wBump) * 0.5 + 0.5);
 				
 				//specular term
 				fixed3 halfVec = normalize(wViewDir + wLightDir);
-				fixed3 specular = _LightColor0.rgb * _Specular.rgb * pow(dot(halfVec, wNormal) * 0.5 + 0.5, _Gloss);
+				fixed3 specular = _LightColor0.rgb * _Specular.rgb * pow(dot(halfVec, wBump) * 0.5 + 0.5, _Gloss);
 				
 				UNITY_LIGHT_ATTENUATION(atten, i, i.worldPos.xyz);
 
@@ -201,13 +201,13 @@ Shader "KT/MultiLightForwardRendering"
 				i.worldTangent = normalize(i.worldTangent);
 				i.worldBinormal = normalize(i.worldBinormal);
 
-				fixed3 tNormal = normalize(UnpackNormal(tex2D(_BumpMap, i.uv.zw)));
-				tNormal.xy *= _BumpScale;
-				tNormal.z = sqrt(1 - saturate(dot(tNormal.xy, tNormal.xy))); //make sure z is always greater than or equal 0
-				tNormal = normalize(tNormal);
+				fixed3 bump = normalize(UnpackNormal(tex2D(_BumpMap, i.uv.zw)));
+				bump.xy *= _BumpScale;
+				bump.z = sqrt(1 - saturate(dot(bump.xy, bump.xy))); //make sure z is always greater than or equal 0
+				bump = normalize(bump);
 
 				//tangent to world transform
-				fixed3 wNormal = normalize(tNormal.x * i.worldTangent + tNormal.y * i.worldBinormal + tNormal.z * i.worldNormal);
+				fixed3 wBump = normalize(bump.x * i.worldTangent + bump.y * i.worldBinormal + bump.z * i.worldNormal);
 
 				// sample the texture
 				fixed3 albedo = tex2D(_MainTex, i.uv.xy).rgb * _Tint.rgb;
@@ -216,11 +216,11 @@ Shader "KT/MultiLightForwardRendering"
 				fixed3 wViewDir = normalize(UnityWorldSpaceViewDir(i.worldPos));
 
 				//diffuse term
-				fixed3 diffuse = _LightColor0.rgb * (dot(wLightDir, wNormal) * 0.5 + 0.5);
+				fixed3 diffuse = _LightColor0.rgb * (dot(wLightDir, wBump) * 0.5 + 0.5);
 				
 				//specular term
 				fixed3 halfVec = normalize(wViewDir + wLightDir);
-				fixed3 specular = _LightColor0.rgb * _Specular.rgb * pow(dot(halfVec, wNormal) * 0.5 + 0.5, _Gloss);
+				fixed3 specular = _LightColor0.rgb * _Specular.rgb * pow(dot(halfVec, wBump) * 0.5 + 0.5, _Gloss);
 				
 				UNITY_LIGHT_ATTENUATION(atten, i, i.worldPos.xyz);
 
@@ -235,4 +235,6 @@ Shader "KT/MultiLightForwardRendering"
 		}
 
 	}
+
+	FallBack "Bumped Specular" //make sure there is a fallback. This fallback may contain shadow effect. 
 }

@@ -88,12 +88,12 @@
 				i.worldTangent = normalize(i.worldTangent);
 				i.worldBinormal = normalize(i.worldBinormal);
 
-				fixed3 tNormal = normalize(UnpackNormal(tex2D(_BumpMap, i.uv.zw))); //UnpackNormal would remap value from [0, 1] to [-1, 1]
-				tNormal.xy *= _BumpScale;
-				tNormal.z = sqrt(1 - saturate(dot(tNormal.xy, tNormal.xy))); //make sure z is always greater than or equal 0
-				tNormal = normalize(tNormal);
+				fixed3 bump = normalize(UnpackNormal(tex2D(_BumpMap, i.uv.zw))); //UnpackNormal would remap value from [0, 1] to [-1, 1]
+				bump.xy *= _BumpScale;
+				bump.z = sqrt(1 - saturate(dot(bump.xy, bump.xy))); //make sure z is always greater than or equal 0
+				bump = normalize(bump);
 
-				fixed3 wNormal = normalize(tNormal.x * i.worldTangent + tNormal.y * i.worldBinormal + tNormal.z * i.worldNormal);
+				fixed3 wBump = normalize(bump.x * i.worldTangent + bump.y * i.worldBinormal + bump.z * i.worldNormal);
 
 				// sample the texture
 				fixed3 albedo = tex2D(_MainTex, i.uv.xy).rgb * _Tint.rgb;
@@ -102,11 +102,11 @@
 				fixed3 ambient = UNITY_LIGHTMODEL_AMBIENT.xyz;
 
 				//Compute diffuse term(half-lambert)
-				fixed3 diffuse = _LightColor0.rgb * (dot(wNormal, wLightDir) * 0.5 + 0.5);
+				fixed3 diffuse = _LightColor0.rgb * (dot(wBump, wLightDir) * 0.5 + 0.5);
 
 				//Compute specular term(Blinn-Phong)
 				fixed3 halfVec = normalize(wViewDir + wLightDir);
-				fixed3 specular = _LightColor0.rgb * _Specular.rgb * pow(dot(wNormal, halfVec) * 0.5 + 0.5, _Gloss);
+				fixed3 specular = _LightColor0.rgb * _Specular.rgb * pow(dot(wBump, halfVec) * 0.5 + 0.5, _Gloss);
 
 				fixed3 color = (ambient + diffuse) * albedo + specular;
 
